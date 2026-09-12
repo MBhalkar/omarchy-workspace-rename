@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "mbhalkar.workspace-rename",
+  "id": "io.github.MBhalkar.workspace-rename",
   "name": "Workspace Rename",
   "version": "1.0.0",
   "author": "MBhalkar",
@@ -9,10 +9,8 @@
   "homepage": "https://github.com/MBhalkar/omarchy-workspace-rename",
   "repository": "https://github.com/MBhalkar/omarchy-workspace-rename",
   "keywords": [
-    "workspace",
-    "hyprland",
-    "rename",
-    "productivity"
+    "workspaces",
+    "hyprland"
   ],
   "kinds": [
     "bar-widget"
@@ -23,12 +21,11 @@
     "filesystem-read"
   ],
   "entryPoints": {
-    "barWidget": "WorkspaceRename.qml"
+    "barWidget": "BarWidget.qml"
   },
   "barWidget": {
     "displayName": "Workspace Rename",
-    "description": "Click workspace numbers to rename them",
-    "category": "Compositor",
+    "category": "Productivity",
     "allowMultiple": false,
     "defaultSection": "left"
   }
