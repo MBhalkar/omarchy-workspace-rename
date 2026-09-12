@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "omarchy.workspace-rename",
+  "name": "Workspace Rename",
+  "version": "1.0.0",
+  "author": "MBhalkar",
+  "license": "MIT",
+  "description": "Rename Hyprland workspaces with custom short names that persist across restarts.",
+  "homepage": "https://github.com/MBhalkar/omarchy-workspace-rename",
+  "repository": "https://github.com/MBhalkar/omarchy-workspace-rename",
+  "keywords": [
+    "workspace",
+    "hyprland",
+    "rename",
+    "productivity"
+  ],
+  "kinds": [
+    "command"
+  ],
+  "permissions": [
+    "user-config"
+  ]
+}

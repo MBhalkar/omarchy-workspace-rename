@@ -1,0 +1,213 @@
+#!/usr/bin/env bash
+# omarchy-workspace-rename - Rename Hyprland workspaces with custom names
+
+set -euo pipefail
+
+HYPRLAND_CONFIG="$HOME/.config/hypr/hyprland.lua"
+STATE_FILE="$HOME/.local/share/omarchy-workspace-rename/workspace-names.json"
+
+usage() {
+    cat << EOF
+Usage: omarchy-workspace-rename <workspace_id> <new_name>
+       omarchy-workspace-rename --list
+       omarchy-workspace-rename --reset <workspace_id>
+
+Rename Hyprland workspaces with custom short names that persist across restarts.
+
+Arguments:
+  workspace_id    Workspace ID (1-10)
+  new_name        New short name for the workspace (no spaces, use underscores)
+
+Options:
+  --list          List all workspace names
+  --reset         Reset workspace to default name
+  --help          Show this help message
+
+Examples:
+  omarchy-workspace-rename 1 dev
+  omarchy-workspace-rename 2 web
+  omarchy-workspace-rename 3 chat
+  omarchy-workspace-rename --list
+  omarchy-workspace-rename --reset 1
+
+The workspace names are stored in:
+  $STATE_FILE
+
+And applied to:
+  $HYPRLAND_CONFIG
+EOF
+}
+
+ensure_state_dir() {
+    local state_dir
+    state_dir=$(dirname "$STATE_FILE")
+    [[ -d "$state_dir" ]] || mkdir -p "$state_dir"
+}
+
+init_state_file() {
+    ensure_state_dir
+    if [[ ! -f "$STATE_FILE" ]]; then
+        echo '{}' > "$STATE_FILE"
+    fi
+}
+
+validate_workspace_id() {
+    local id="$1"
+    if ! [[ "$id" =~ ^[0-9]+$ ]] || [[ "$id" -lt 1 ]] || [[ "$id" -gt 10 ]]; then
+        echo "Error: Workspace ID must be between 1 and 10" >&2
+        return 1
+    fi
+}
+
+validate_name() {
+    local name="$1"
+    if [[ -z "$name" ]]; then
+        echo "Error: Workspace name cannot be empty" >&2
+        return 1
+    fi
+    if [[ "$name" =~ [[:space:]] ]]; then
+        echo "Error: Workspace name cannot contain spaces (use underscores instead)" >&2
+        return 1
+    fi
+    if [[ ${#name} -gt 30 ]]; then
+        echo "Error: Workspace name too long (max 30 characters)" >&2
+        return 1
+    fi
+}
+
+get_workspace_name() {
+    local id="$1"
+    init_state_file
+    jq -r --arg id "$id" '.[$id] // empty' "$STATE_FILE"
+}
+
+set_workspace_name() {
+    local id="$1"
+    local name="$2"
+    
+    validate_workspace_id "$id" || return 1
+    validate_name "$name" || return 1
+    
+    init_state_file
+    
+    local tmp_file
+    tmp_file=$(mktemp)
+    jq --arg id "$id" --arg name "$name" '.[$id] = $name' "$STATE_FILE" > "$tmp_file"
+    mv "$tmp_file" "$STATE_FILE"
+    
+    echo "Workspace $id renamed to: $name"
+}
+
+reset_workspace_name() {
+    local id="$1"
+    
+    validate_workspace_id "$id" || return 1
+    init_state_file
+    
+    local tmp_file
+    tmp_file=$(mktemp)
+    jq --arg id "$id" 'del(.[$id])' "$STATE_FILE" > "$tmp_file"
+    mv "$tmp_file" "$STATE_FILE"
+    
+    echo "Workspace $id name reset"
+}
+
+list_workspaces() {
+    init_state_file
+    echo "Current workspace names:"
+    echo ""
+    
+    if [[ $(jq 'length' "$STATE_FILE") -eq 0 ]]; then
+        echo "  (no custom names set)"
+        return
+    fi
+    
+    jq -r 'to_entries | sort_by(.key | tonumber) | .[] | "  Workspace \(.key): \(.value)"' "$STATE_FILE"
+}
+
+apply_to_hyprland() {
+    if [[ ! -f "$HYPRLAND_CONFIG" ]]; then
+        echo "Error: Hyprland config not found at $HYPRLAND_CONFIG" >&2
+        return 1
+    fi
+    
+    init_state_file
+    
+    local backup_file="${HYPRLAND_CONFIG}.bak.$(date +%s)"
+    cp "$HYPRLAND_CONFIG" "$backup_file"
+    echo "Backup created: $backup_file"
+    
+    local tmp_config
+    tmp_config=$(mktemp)
+    
+    local in_workspace_section=false
+    local workspace_lines=()
+    
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^[[:space:]]*hl\.workspace_rule.*default_name ]]; then
+            if [[ "$line" =~ workspace[[:space:]]*=[[:space:]]*\"?([0-9]+)\"? ]]; then
+                local ws_id="${BASH_REMATCH[1]}"
+                local custom_name
+                custom_name=$(get_workspace_name "$ws_id")
+                
+                if [[ -n "$custom_name" ]]; then
+                    local formatted_name="${ws_id}_${custom_name}"
+                    echo "hl.workspace_rule({ workspace = \"$ws_id\", default_name = \"$formatted_name\", persistent = true })" >> "$tmp_config"
+                else
+                    echo "$line" >> "$tmp_config"
+                fi
+            else
+                echo "$line" >> "$tmp_config"
+            fi
+        else
+            echo "$line" >> "$tmp_config"
+        fi
+    done < "$HYPRLAND_CONFIG"
+    
+    mv "$tmp_config" "$HYPRLAND_CONFIG"
+    
+    hyprctl reload >/dev/null 2>&1 || true
+    
+    echo "Workspace names applied to Hyprland config"
+    echo "Hyprland config reloaded"
+}
+
+main() {
+    if [[ $# -eq 0 ]]; then
+        usage
+        exit 1
+    fi
+    
+    case "$1" in
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        --list|-l)
+            list_workspaces
+            exit 0
+            ;;
+        --reset|-r)
+            if [[ $# -ne 2 ]]; then
+                echo "Error: --reset requires a workspace ID" >&2
+                usage
+                exit 1
+            fi
+            reset_workspace_name "$2"
+            apply_to_hyprland
+            exit 0
+            ;;
+        *)
+            if [[ $# -ne 2 ]]; then
+                echo "Error: Invalid arguments" >&2
+                usage
+                exit 1
+            fi
+            set_workspace_name "$1" "$2"
+            apply_to_hyprland
+            exit 0
+            ;;
+    esac
+}
+
+main "$@"

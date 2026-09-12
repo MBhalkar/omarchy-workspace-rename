@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# Test suite for omarchy-workspace-rename
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEST_STATE_FILE="/tmp/test-workspace-names.json"
+TEST_HYPRLAND_CONFIG="/tmp/test-hyprland.lua"
+
+# Override paths for testing
+export STATE_FILE="$TEST_STATE_FILE"
+export HYPRLAND_CONFIG="$TEST_HYPRLAND_CONFIG"
+
+echo "Running tests for omarchy-workspace-rename..."
+
+# Setup test environment
+setup() {
+    rm -f "$TEST_STATE_FILE" "$TEST_HYPRLAND_CONFIG"
+    mkdir -p "$(dirname "$TEST_STATE_FILE")"
+    
+    # Create minimal test Hyprland config
+    cat > "$TEST_HYPRLAND_CONFIG" << 'EOF'
+-- Test Hyprland config
+hl.workspace_rule({ workspace = "1", default_name = "1_code", persistent = true })
+hl.workspace_rule({ workspace = "2", default_name = "2_browser", persistent = true })
+hl.workspace_rule({ workspace = "3", default_name = "3_terminal", persistent = true })
+EOF
+}
+
+# Cleanup
+cleanup() {
+    rm -f "$TEST_STATE_FILE" "$TEST_HYPRLAND_CONFIG" "${TEST_HYPRLAND_CONFIG}.bak."*
+}
+
+# Test: Basic rename
+test_basic_rename() {
+    echo -n "  Testing basic rename... "
+    ./omarchy-workspace-rename 1 dev >/dev/null 2>&1 || true
+    if grep -q '"1": "dev"' "$TEST_STATE_FILE" 2>/dev/null; then
+        echo "✓"
+        return 0
+    else
+        echo "✗ Failed"
+        return 1
+    fi
+}
+
+# Test: List workspaces
+test_list() {
+    echo -n "  Testing list command... "
+    output=$(./omarchy-workspace-rename --list 2>/dev/null || true)
+    if echo "$output" | grep -q "Workspace 1: dev"; then
+        echo "✓"
+        return 0
+    else
+        echo "✗ Failed"
+        return 1
+    fi
+}
+
+# Test: Reset workspace
+test_reset() {
+    echo -n "  Testing reset command... "
+    ./omarchy-workspace-rename --reset 1 >/dev/null 2>&1 || true
+    if ! grep -q '"1"' "$TEST_STATE_FILE" 2>/dev/null; then
+        echo "✓"
+        return 0
+    else
+        echo "✗ Failed"
+        return 1
+    fi
+}
+
+# Test: Invalid workspace ID
+test_invalid_id() {
+    echo -n "  Testing invalid workspace ID... "
+    if ./omarchy-workspace-rename 99 test 2>/dev/null; then
+        echo "✗ Should have failed"
+        return 1
+    else
+        echo "✓"
+        return 0
+    fi
+}
+
+# Test: Name with spaces
+test_name_with_spaces() {
+    echo -n "  Testing name with spaces... "
+    if ./omarchy-workspace-rename 1 "test name" 2>/dev/null; then
+        echo "✗ Should have failed"
+        return 1
+    else
+        echo "✓"
+        return 0
+    fi
+}
+
+# Run all tests
+main() {
+    cd "$SCRIPT_DIR/.."
+    
+    setup
+    
+    local failed=0
+    
+    test_basic_rename || ((failed++))
+    test_list || ((failed++))
+    test_reset || ((failed++))
+    test_invalid_id || ((failed++))
+    test_name_with_spaces || ((failed++))
+    
+    cleanup
+    
+    echo ""
+    if [[ $failed -eq 0 ]]; then
+        echo "All tests passed ✓"
+        return 0
+    else
+        echo "$failed test(s) failed ✗"
+        return 1
+    fi
+}
+
+main
