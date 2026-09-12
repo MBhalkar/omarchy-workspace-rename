@@ -15,9 +15,23 @@
     "productivity"
   ],
   "kinds": [
-    "command"
+    "bar-widget",
+    "overlay"
   ],
+  "keepLoaded": true,
   "permissions": [
-    "user-config"
-  ]
+    "user-config",
+    "filesystem-read"
+  ],
+  "entryPoints": {
+    "barWidget": "WorkspaceRename.qml",
+    "overlay": "RenamePanel.qml"
+  },
+  "barWidget": {
+    "displayName": "Workspace Rename",
+    "description": "Click workspace numbers to rename them",
+    "category": "Compositor",
+    "allowMultiple": false,
+    "defaultSection": "left"
+  }
 }
