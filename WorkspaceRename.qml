@@ -41,7 +41,7 @@ BarWidget {
   function workspaceLabel(id) {
     var customName = workspaceNames[String(id)]
     if (customName) {
-      return id + "_" + customName
+      return customName
     }
     return String(id)
   }

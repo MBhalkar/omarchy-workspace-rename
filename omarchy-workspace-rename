@@ -153,8 +153,7 @@ apply_to_hyprland() {
                 custom_name=$(get_workspace_name "$ws_id")
                 
                 if [[ -n "$custom_name" ]]; then
-                    local formatted_name="${ws_id}_${custom_name}"
-                    echo "hl.workspace_rule({ workspace = \"$ws_id\", default_name = \"$formatted_name\", persistent = true })" >> "$tmp_config"
+                    echo "hl.workspace_rule({ workspace = \"$ws_id\", default_name = \"$custom_name\", persistent = true })" >> "$tmp_config"
                 else
                     echo "$line" >> "$tmp_config"
                 fi
