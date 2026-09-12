@@ -2,6 +2,16 @@
 
 Rename Hyprland workspaces with custom short names via an interactive GUI panel. Names persist across system restarts and Omarchy updates.
 
+## Demo
+
+**Before** — Workspace 4 displays as its default number "4" in the bar:
+
+![Before renaming — workspace shows as number 4](screenshots/before.png)
+
+**After** — Workspace 4 renamed to "test" via the GUI panel:
+
+![After renaming — workspace shows custom name "test"](screenshots/after.png)
+
 ## Features
 
 - Click-to-rename: Click the focused workspace in the bar to open the rename panel
