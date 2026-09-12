@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
@@ -12,11 +11,6 @@ BarWidget {
   moduleName: "mbhalkar.workspace-rename"
 
   property var workspaceNames: ({})
-  property bool showingRenamePanel: false
-  property int renamingWorkspaceId: -1
-  property string currentRenamingName: ""
-  readonly property string stateFile: Quickshell.env("HOME") + "/.local/share/omarchy-workspace-rename/workspace-names.json"
-  readonly property string scriptPath: Quickshell.env("HOME") + "/.local/bin/omarchy-workspace-rename"
 
   function workspaceById(id) {
     var values = Hyprland.workspaces.values
@@ -41,7 +35,7 @@ BarWidget {
 
   function focusWorkspace(id) {
     if (!root.bar) return
-    root.bar.run("hyprctl dispatch workspace " + id)
+    root.bar.run("hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ workspace = \"" + id + "\" })"))
   }
 
   function workspaceLabel(id) {
@@ -66,45 +60,6 @@ BarWidget {
     }
   }
 
-  function openRenamePanel(workspaceId) {
-    renamingWorkspaceId = workspaceId
-    currentRenamingName = workspaceNames[String(workspaceId)] || ""
-    showingRenamePanel = true
-  }
-
-  function saveName(name) {
-    if (renamingWorkspaceId < 0) return
-    
-    var cleanName = name.trim().replace(/\s+/g, "_")
-    if (cleanName === "") {
-      showingRenamePanel = false
-      renamingWorkspaceId = -1
-      return
-    }
-    
-    if (cleanName.length > 30) {
-      cleanName = cleanName.substring(0, 30)
-    }
-    
-    if (root.bar) {
-      root.bar.run(scriptPath + " " + renamingWorkspaceId + " " + cleanName)
-    }
-    
-    showingRenamePanel = false
-    renamingWorkspaceId = -1
-  }
-
-  function resetName() {
-    if (renamingWorkspaceId < 0) return
-    
-    if (root.bar) {
-      root.bar.run(scriptPath + " --reset " + renamingWorkspaceId)
-    }
-    
-    showingRenamePanel = false
-    renamingWorkspaceId = -1
-  }
-
   readonly property real trailingGap: root.vertical ? 0 : Style.spaceReal(1.5)
 
   implicitWidth: grid.implicitWidth + trailingGap
@@ -116,7 +71,7 @@ BarWidget {
 
   FileView {
     id: stateFileView
-    path: root.stateFile
+    path: Quickshell.env("HOME") + "/.local/share/omarchy-workspace-rename/workspace-names.json"
     watchChanges: true
     atomicWrites: true
     printErrors: false
@@ -135,187 +90,23 @@ BarWidget {
     Repeater {
       model: root.workspaceIds()
 
-      Item {
+      WidgetButton {
         required property int modelData
-        
-        Layout.fillWidth: root.vertical
-        Layout.fillHeight: !root.vertical
-        implicitWidth: wsButton.implicitWidth
-        implicitHeight: wsButton.implicitHeight
 
         readonly property var workspace: root.workspaceById(modelData)
         readonly property bool occupied: workspace !== null && workspace.toplevels.values.length > 0
         readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
 
-        WidgetButton {
-          id: wsButton
-          anchors.fill: parent
-          
-          bar: root.bar
-          text: root.workspaceLabel(parent.modelData)
-          active: parent.focused
-          opacity: parent.occupied || parent.focused ? 1 : 0.5
-          horizontalMargin: 6
-          verticalPadding: 6
-          fixedWidth: root.vertical ? root.barSize : -1
-          fixedHeight: root.barSize
-          
-          // Left click = switch workspace (default behavior)
-          onPressed: function() { 
-            root.focusWorkspace(parent.modelData)
-          }
-        }
-        
-        // Right click handler on top
-        MouseArea {
-          anchors.fill: parent
-          acceptedButtons: Qt.RightButton
-          onClicked: function(mouse) {
-            if (mouse.button === Qt.RightButton) {
-              root.openRenamePanel(parent.modelData)
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // Rename panel overlay
-  Item {
-    visible: root.showingRenamePanel
-    anchors.fill: parent
-    z: 1000
-
-    MouseArea {
-      anchors.fill: parent
-      onClicked: root.showingRenamePanel = false
-    }
-
-    Rectangle {
-      id: renamePanel
-      x: 10
-      y: root.barSize + 5
-      width: 350
-      height: 140
-      color: "#2e3440"
-      border.color: "#4c566a"
-      border.width: 2
-      radius: 8
-
-      MouseArea {
-        anchors.fill: parent
-        onClicked: {}
-      }
-
-      ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 16
-        spacing: 12
-
-        Text {
-          Layout.fillWidth: true
-          text: "Rename Workspace " + root.renamingWorkspaceId
-          font.pixelSize: 16
-          font.weight: Font.Bold
-          color: "#eceff4"
-          horizontalAlignment: Text.AlignHCenter
-        }
-
-        TextField {
-          id: nameField
-          Layout.fillWidth: true
-          implicitHeight: 36
-          placeholderText: "Enter name (spaces → underscores)"
-          font.pixelSize: 14
-          color: "#eceff4"
-          text: root.currentRenamingName
-          
-          background: Rectangle {
-            color: "#3b4252"
-            border.color: nameField.activeFocus ? "#88c0d0" : "#4c566a"
-            border.width: 1
-            radius: 4
-          }
-          
-          Keys.onReturnPressed: {
-            root.saveName(text)
-          }
-          
-          Keys.onEscapePressed: {
-            root.showingRenamePanel = false
-          }
-          
-          Component.onCompleted: {
-            forceActiveFocus()
-          }
-        }
-
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: 8
-
-          Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            color: saveButton.pressed ? "#4c7a9e" : "#5e81ac"
-            opacity: nameField.text.trim().length > 0 ? 1 : 0.5
-            radius: 4
-            
-            Text {
-              anchors.centerIn: parent
-              text: "Save"
-              font.pixelSize: 13
-              color: "#eceff4"
-            }
-            
-            MouseArea {
-              id: saveButton
-              anchors.fill: parent
-              enabled: nameField.text.trim().length > 0
-              onClicked: root.saveName(nameField.text)
-            }
-          }
-
-          Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            color: resetButton.pressed ? "#3b4252" : "#4c566a"
-            radius: 4
-            
-            Text {
-              anchors.centerIn: parent
-              text: "Reset"
-              font.pixelSize: 13
-              color: "#eceff4"
-            }
-            
-            MouseArea {
-              id: resetButton
-              anchors.fill: parent
-              onClicked: root.resetName()
-            }
-          }
-
-          Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            color: cancelButton.pressed ? "#3b4252" : "#4c566a"
-            radius: 4
-            
-            Text {
-              anchors.centerIn: parent
-              text: "Cancel"
-              font.pixelSize: 13
-              color: "#eceff4"
-            }
-            
-            MouseArea {
-              id: cancelButton
-              anchors.fill: parent
-              onClicked: root.showingRenamePanel = false
-            }
-          }
-        }
+        bar: root.bar
+        readonly property string customLabel: root.workspaceLabel(modelData)
+        text: customLabel !== "" && customLabel !== null ? customLabel : (focused ? "󰻿" : String(modelData))
+        active: focused
+        opacity: occupied || focused ? 1 : 0.5
+        horizontalMargin: 6
+        verticalPadding: 6
+        fixedWidth: customLabel !== "" && customLabel !== null ? (root.vertical ? root.barSize : -1) : (root.vertical ? root.barSize : Style.space(20))
+        fixedHeight: root.barSize
+        onPressed: function() { root.focusWorkspace(modelData) }
       }
     }
   }
