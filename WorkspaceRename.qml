@@ -12,6 +12,7 @@ BarWidget {
 
   property var workspaceNames: ({})
   property int renamingWorkspaceId: 0
+  property bool _skipNextClick: false
 
   function workspaceById(id) {
     var values = Hyprland.workspaces.values
@@ -64,8 +65,9 @@ BarWidget {
   function openRenamePopup(wsId) {
     renamingWorkspaceId = wsId
     renameInput.text = workspaceNames[String(wsId)] || ""
+    _skipNextClick = true
     renamePopup.open = true
-    Qt.callLater(function() { renameInput.forceActiveFocus() })
+    renameInput.forceActiveFocus()
   }
 
   function closeRenamePopup() {
@@ -102,6 +104,13 @@ BarWidget {
     printErrors: false
     onLoaded: root.loadWorkspaceNames()
     onFileChanged: reload()
+  }
+
+  Connections {
+    target: Hyprland
+    function onFocusedWorkspaceChanged() {
+      if (renamePopup.open) closeRenamePopup()
+    }
   }
 
   GridLayout {
@@ -142,14 +151,30 @@ BarWidget {
     }
   }
 
+  MouseArea {
+    anchors.fill: parent
+    visible: renamePopup.open
+    z: 50
+    onPressed: function(mouse) {
+      if (root._skipNextClick) {
+        root._skipNextClick = false
+        mouse.accepted = false
+        return
+      }
+      root.closeRenamePopup()
+      mouse.accepted = true
+    }
+  }
+
   PopupCard {
     id: renamePopup
     anchorItem: root
     bar: root.bar
     open: false
+    grabFocus: true
     contentWidth: renameContent.implicitWidth + 32
     contentHeight: renameContent.implicitHeight + 24
-    triggerMode: "click"
+    triggerMode: "hover"
 
     anchor {
       adjustment: PopupAdjustment.Slide
@@ -197,6 +222,7 @@ BarWidget {
       TextField {
         id: renameInput
         width: Style.space(160)
+        focus: true
         placeholderText: "Enter name\u2026"
         Keys.onReturnPressed: root.saveWorkspaceName()
         Keys.onEnterPressed: root.saveWorkspaceName()
