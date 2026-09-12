@@ -1,8 +1,16 @@
 # Workspace Rename Plugin - Usage Guide
 
-## Current Status
+## GUI Rename (Bar Widget)
 
-The plugin is installed and functional via **command-line interface (CLI)**:
+Click the **currently focused** workspace name in the bar to open a rename panel. Type a new name and press **Enter** to save. Press **Escape** or click outside the panel to cancel.
+
+- Empty or whitespace-only input leaves the current name unchanged
+- Names cannot contain spaces (use underscores instead)
+- Maximum 30 characters
+
+Left-click on a **non-focused** workspace switches to it (standard behavior).
+
+## Command-Line Interface (CLI)
 
 ### Rename a workspace
 ```bash
@@ -21,22 +29,13 @@ omarchy-workspace-rename --list
 omarchy-workspace-rename --reset 1
 ```
 
-## Known Limitation
-
-**GUI panel (right-click) is not functional** due to Omarchy's WidgetButton component limitations with custom mouse event handling. The workspaces display correctly and left-click to switch works as expected.
-
-## Workaround
-
-Use the CLI tool to rename workspaces. The custom names will appear in the bar automatically.
-
 ## Technical Notes
 
 - Custom names are stored in: `~/.local/share/omarchy-workspace-rename/workspace-names.json`
 - Names persist across reboots and Omarchy updates
+- The bar widget displays custom workspace names automatically
 - Left-click on workspace numbers switches to that workspace (default behavior preserved)
-- The bar widget displays custom workspace names in the format: `{id}_{name}` (e.g., `1_dev`, `2_browser`)
 
 ## Workspace 5 Grayed Out
 
 Workspace 5 appears grayed out because it has no windows open and is not the currently focused workspace. This is normal Hyprland/Omarchy behavior - workspaces dim when empty and not active.
-
