@@ -9,6 +9,7 @@ STATE_FILE="$HOME/.local/share/omarchy-workspace-rename/workspace-names.json"
 usage() {
     cat << EOF
 Usage: omarchy-workspace-rename <workspace_id> <new_name>
+       omarchy-workspace-rename <workspace_id>
        omarchy-workspace-rename --list
        omarchy-workspace-rename --reset <workspace_id>
 
@@ -17,6 +18,7 @@ Rename Hyprland workspaces with custom short names that persist across restarts.
 Arguments:
   workspace_id    Workspace ID (1-10)
   new_name        New short name for the workspace (no spaces, use underscores)
+                  If omitted, resets the workspace to its original number
 
 Options:
   --list          List all workspace names
@@ -26,7 +28,7 @@ Options:
 Examples:
   omarchy-workspace-rename 1 dev
   omarchy-workspace-rename 2 web
-  omarchy-workspace-rename 3 chat
+  omarchy-workspace-rename 1          # Resets workspace 1 to just "1"
   omarchy-workspace-rename --list
   omarchy-workspace-rename --reset 1
 
@@ -198,14 +200,22 @@ main() {
             exit 0
             ;;
         *)
-            if [[ $# -ne 2 ]]; then
+            if [[ $# -eq 1 ]]; then
+                # Just workspace ID provided, reset to original number
+                validate_workspace_id "$1" || exit 1
+                reset_workspace_name "$1"
+                apply_to_hyprland
+                exit 0
+            elif [[ $# -eq 2 ]]; then
+                # Workspace ID and name provided
+                set_workspace_name "$1" "$2"
+                apply_to_hyprland
+                exit 0
+            else
                 echo "Error: Invalid arguments" >&2
                 usage
                 exit 1
             fi
-            set_workspace_name "$1" "$2"
-            apply_to_hyprland
-            exit 0
             ;;
     esac
 }

@@ -51,6 +51,9 @@ The plugin also provides a command-line tool:
 # Rename a workspace
 omarchy-workspace-rename <workspace_id> <new_name>
 
+# Reset a workspace to original number (just provide the ID)
+omarchy-workspace-rename <workspace_id>
+
 # List all workspace names
 omarchy-workspace-rename --list
 
@@ -62,7 +65,8 @@ Examples:
 ```bash
 omarchy-workspace-rename 1 dev
 omarchy-workspace-rename 2 web
-omarchy-workspace-rename 3 chat
+omarchy-workspace-rename 3 terminal
+omarchy-workspace-rename 1          # Resets workspace 1 to just "1"
 omarchy-workspace-rename --list
 omarchy-workspace-rename --reset 1
 ```
