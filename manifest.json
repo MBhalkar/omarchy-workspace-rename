@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "omarchy.workspace-rename",
+  "id": "mbhalkar.workspace-rename",
   "name": "Workspace Rename",
   "version": "1.0.0",
   "author": "MBhalkar",
@@ -15,8 +15,7 @@
     "productivity"
   ],
   "kinds": [
-    "bar-widget",
-    "overlay"
+    "bar-widget"
   ],
   "keepLoaded": true,
   "permissions": [
@@ -24,8 +23,7 @@
     "filesystem-read"
   ],
   "entryPoints": {
-    "barWidget": "WorkspaceRename.qml",
-    "overlay": "RenamePanel.qml"
+    "barWidget": "WorkspaceRename.qml"
   },
   "barWidget": {
     "displayName": "Workspace Rename",
