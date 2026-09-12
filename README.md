@@ -35,12 +35,13 @@ The plugin uses standard tools included with Omarchy:
 
 ### GUI Method (Recommended)
 
-1. **Click** on any workspace number in the bar
-2. A rename panel appears with a text field
-3. **Type** your custom name (spaces will be converted to underscores)
-4. **Press Enter** or click **Save** to apply
-5. Click **Reset** to restore the default name
-6. Click **Cancel** or **Esc** to close without saving
+1. **Left-click** any workspace number to switch to that workspace (normal behavior)
+2. **Right-click** any workspace number to open the rename panel
+3. A rename panel appears below with a text field
+4. **Type** your custom name (spaces will be converted to underscores)
+5. **Press Enter** or click **Save** to apply
+6. Click **Reset** to restore the default name
+7. Click **Cancel** or **Esc** to close without saving
 
 ### CLI Method
 

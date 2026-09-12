@@ -135,24 +135,46 @@ BarWidget {
     Repeater {
       model: root.workspaceIds()
 
-      WidgetButton {
+      Item {
         required property int modelData
+        
+        Layout.fillWidth: root.vertical
+        Layout.fillHeight: !root.vertical
+        implicitWidth: wsButton.implicitWidth
+        implicitHeight: wsButton.implicitHeight
 
         readonly property var workspace: root.workspaceById(modelData)
         readonly property bool occupied: workspace !== null && workspace.toplevels.values.length > 0
         readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
 
-        bar: root.bar
-        text: root.workspaceLabel(modelData)
-        active: focused
-        opacity: occupied || focused ? 1 : 0.5
-        horizontalMargin: 6
-        verticalPadding: 6
-        fixedWidth: root.vertical ? root.barSize : -1
-        fixedHeight: root.barSize
+        WidgetButton {
+          id: wsButton
+          anchors.fill: parent
+          
+          bar: root.bar
+          text: root.workspaceLabel(parent.modelData)
+          active: parent.focused
+          opacity: parent.occupied || parent.focused ? 1 : 0.5
+          horizontalMargin: 6
+          verticalPadding: 6
+          fixedWidth: root.vertical ? root.barSize : -1
+          fixedHeight: root.barSize
+          
+          // Left click = switch workspace (default behavior)
+          onPressed: function() { 
+            root.focusWorkspace(parent.modelData)
+          }
+        }
         
-        onPressed: function() { 
-          root.openRenamePanel(modelData)
+        // Right click handler on top
+        MouseArea {
+          anchors.fill: parent
+          acceptedButtons: Qt.RightButton
+          onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+              root.openRenamePanel(parent.modelData)
+            }
+          }
         }
       }
     }
