@@ -102,7 +102,7 @@ Workspace names are formatted as `{id}_{custom_name}` (e.g., `1_dev`, `2_web`), 
 ## Remove
 
 ```bash
-omarchy plugin remove io.github.MBhalkar.workspace-rename
+omarchy plugin remove io.github.mbhalkar.workspace-rename
 ```
 
 Your workspace names will remain in `~/.local/share/omarchy-workspace-rename/` so reinstalling restores them. To completely remove all data:

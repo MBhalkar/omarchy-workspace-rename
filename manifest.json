@@ -1,24 +1,13 @@
 {
   "schemaVersion": 1,
-  "id": "io.github.MBhalkar.workspace-rename",
+  "id": "io.github.mbhalkar.workspace-rename",
   "name": "Workspace Rename",
   "version": "1.0.0",
   "author": "MBhalkar",
   "license": "MIT",
   "description": "Rename Hyprland workspaces with custom short names that persist across restarts.",
-  "homepage": "https://github.com/MBhalkar/omarchy-workspace-rename",
-  "repository": "https://github.com/MBhalkar/omarchy-workspace-rename",
-  "keywords": [
-    "workspaces",
-    "hyprland"
-  ],
   "kinds": [
     "bar-widget"
-  ],
-  "keepLoaded": true,
-  "permissions": [
-    "user-config",
-    "filesystem-read"
   ],
   "entryPoints": {
     "barWidget": "BarWidget.qml"

@@ -8,7 +8,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "io.github.MBhalkar.workspace-rename"
+  moduleName: "io.github.mbhalkar.workspace-rename"
 
   property var workspaceNames: ({})
   property int renamingWorkspaceId: 0
