@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.mbhalkar.workspace-rename",
   "name": "Workspace Rename",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "MBhalkar",
   "license": "MIT",
   "description": "Rename Hyprland workspaces with custom short names that persist across restarts.",
