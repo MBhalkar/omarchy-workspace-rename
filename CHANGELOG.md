@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+### Fixed
+
+- **Security**: Added Lua-string escaping for workspace names to prevent configuration injection. Workspace names are now validated against a strict allowlist (alphanumeric, underscores, hyphens) and escaped before being written to `hyprland.lua`. This prevents injection of arbitrary Lua code through malicious workspace names.
+
 ## 1.0.1
 
 ### Fixed

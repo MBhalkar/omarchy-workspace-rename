@@ -95,6 +95,18 @@ test_name_with_spaces() {
     fi
 }
 
+# Test: Name with injection attempt
+test_name_with_injection() {
+    echo -n "  Testing name with injection attempt... "
+    if ./omarchy-workspace-rename 1 'test" .. os.execute("echo pwned") .. "' 2>/dev/null; then
+        echo "✗ Should have failed"
+        return 1
+    else
+        echo "✓"
+        return 0
+    fi
+}
+
 # Run all tests
 main() {
     cd "$SCRIPT_DIR/.."
@@ -108,6 +120,7 @@ main() {
     test_reset || ((failed++))
     test_invalid_id || ((failed++))
     test_name_with_spaces || ((failed++))
+    test_name_with_injection || ((failed++))
     
     cleanup
     

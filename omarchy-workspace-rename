@@ -3,8 +3,8 @@
 
 set -euo pipefail
 
-HYPRLAND_CONFIG="$HOME/.config/hypr/hyprland.lua"
-STATE_FILE="$HOME/.local/share/omarchy-workspace-rename/workspace-names.json"
+HYPRLAND_CONFIG="${HYPRLAND_CONFIG:-$HOME/.config/hypr/hyprland.lua}"
+STATE_FILE="${STATE_FILE:-$HOME/.local/share/omarchy-workspace-rename/workspace-names.json}"
 
 usage() {
     cat << EOF
@@ -75,6 +75,20 @@ validate_name() {
         echo "Error: Workspace name too long (max 30 characters)" >&2
         return 1
     fi
+    if [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "Error: Workspace name can only contain letters, numbers, underscores, and hyphens" >&2
+        return 1
+    fi
+}
+
+lua_escape_string() {
+    local str="$1"
+    str="${str//\\/\\\\}"
+    str="${str//\"/\\\"}"
+    str="${str//$'\n'/\\n}"
+    str="${str//$'\r'/\\r}"
+    str="${str//$'\t'/\\t}"
+    echo "$str"
 }
 
 get_workspace_name() {
@@ -153,7 +167,9 @@ apply_to_hyprland() {
                 custom_name=$(get_workspace_name "$ws_id")
                 
                 if [[ -n "$custom_name" ]]; then
-                    echo "hl.workspace_rule({ workspace = \"$ws_id\", default_name = \"$custom_name\", persistent = true })" >> "$tmp_config"
+                    local escaped_name
+                    escaped_name=$(lua_escape_string "$custom_name")
+                    echo "hl.workspace_rule({ workspace = \"$ws_id\", default_name = \"$escaped_name\", persistent = true })" >> "$tmp_config"
                 else
                     echo "$line" >> "$tmp_config"
                 fi
