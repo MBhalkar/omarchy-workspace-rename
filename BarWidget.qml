@@ -14,38 +14,114 @@ BarWidget {
   property int renamingWorkspaceId: 0
   property bool _skipNextClick: false
 
+  // Every monitor has workspaces 1-10 of its own, which Hyprland numbers in a
+  // block of ten per monitor: 1-10, 11-20, and so on (see
+  // default/hypr/monitor-workspaces.lua). Each bar shows its own monitor's block,
+  // numbered 1-10, and the one that monitor shows, whichever monitor has focus.
+  readonly property int slots: 10
+
+  readonly property var monitor: {
+    var window = root.QsWindow.window
+    var screen = window ? window.screen : null
+    return screen ? Hyprland.monitorFor(screen) : Hyprland.focusedMonitor
+  }
+  readonly property string monitorName: root.monitor ? root.monitor.name : ""
+
+  // Connector -> block, from the file Hyprland keeps them in.
+  property var blocks: ({})
+
+  function readBlocks(text) {
+    var next = {}
+    var lines = String(text || "").split("\n")
+    for (var i = 0; i < lines.length; i++) {
+      var fields = lines[i].split("\t")
+      if (fields.length >= 3 && fields[1] !== "") next[fields[1]] = parseInt(fields[0], 10)
+    }
+    root.blocks = next
+  }
+
+  FileView {
+    path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/monitors/workspaces"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.readBlocks(text())
+    onLoadFailed: root.readBlocks("")
+  }
+
+  function blockOf(id) {
+    return Math.floor((id - 1) / root.slots)
+  }
+
+  function slotOf(id) {
+    return (id - 1) % root.slots + 1
+  }
+
+  function activeWorkspaceId() {
+    return root.monitor && root.monitor.activeWorkspace ? root.monitor.activeWorkspace.id : -1
+  }
+
+  // Until Hyprland has written the file, the workspace a monitor shows is in
+  // its own block.
+  readonly property int block: {
+    var block = root.blocks[root.monitorName]
+    if (block !== undefined) return block
+    var active = root.activeWorkspaceId()
+    return active > 0 ? root.blockOf(active) : 0
+  }
+
   function workspaceById(id) {
     var values = Hyprland.workspaces.values
     for (var i = 0; i < values.length; i++) {
       if (values[i].id === id) return values[i]
     }
+
     return null
   }
 
+  // The first five of the monitor's own, and any of the rest that exist. After
+  // them come workspaces that are only visiting: those of a monitor that is
+  // unplugged, which had no room to join this one's.
   function workspaceIds() {
-    var ids = [1, 2, 3, 4, 5]
+    var base = root.block * root.slots
+    var ids = [base + 1, base + 2, base + 3, base + 4, base + 5]
+    var guests = []
     var values = Hyprland.workspaces.values
 
     for (var i = 0; i < values.length; i++) {
       var id = values[i].id
-      if (id > 0 && id <= 10 && ids.indexOf(id) === -1) ids.push(id)
+      if (id <= 0) continue
+      if (root.blockOf(id) === root.block) {
+        if (ids.indexOf(id) === -1) ids.push(id)
+      } else if (values[i].monitor && values[i].monitor.name === root.monitorName) {
+        guests.push(id)
+      }
     }
 
     ids.sort(function(left, right) { return left - right })
-    return ids
+    guests.sort(function(left, right) { return left - right })
+    return ids.concat(guests)
+  }
+
+  function dispatch(expression) {
+    if (root.bar) root.bar.run("hyprctl dispatch " + Util.shellQuote(expression))
   }
 
   function focusWorkspace(id) {
-    if (!root.bar) return
-    root.bar.run("hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ workspace = \"" + id + "\" })"))
+    if (root.blockOf(id) === root.block) {
+      root.dispatch("o.workspaces.focus(" + root.slotOf(id) + ", \"" + root.monitorName + "\")")
+    } else {
+      root.dispatch("hl.dsp.focus({ workspace = \"" + id + "\" })")
+    }
   }
 
   function workspaceLabel(id) {
-    var customName = workspaceNames[String(id)]
+    var customName = root.workspaceNames[String(id)]
     if (customName) {
       return customName
     }
-    return String(id)
+    var slot = root.slotOf(id)
+    return slot === root.slots ? "0" : String(slot)
   }
 
   function loadWorkspaceNames() {
@@ -63,6 +139,7 @@ BarWidget {
   }
 
   function openRenamePopup(wsId) {
+    renameError = ""
     renamingWorkspaceId = wsId
     renameInput.text = workspaceNames[String(wsId)] || ""
     _skipNextClick = true
@@ -75,16 +152,40 @@ BarWidget {
     renamingWorkspaceId = 0
   }
 
+  property string renameError: ""
+
   function saveWorkspaceName() {
-    var wsId = renamingWorkspaceId
+    if (renameProcess.running || renamingWorkspaceId <= 0) return
     var newName = renameInput.text.trim()
+    if (newName !== "" && !/^[a-zA-Z0-9_-]{1,30}$/.test(newName)) {
+      renameError = "Use up to 30 letters, numbers, underscores or hyphens."
+      return
+    }
+    renameError = ""
+    // Use the installed filesystem path, independent of Quickshell's qs: URLs.
+    var script = Quickshell.env("HOME") + "/.config/omarchy/plugins/io.github.mbhalkar.workspace-rename/omarchy-workspace-rename"
+    renameProcess.command = newName === ""
+      ? [script, "--reset", String(renamingWorkspaceId)]
+      : [script, String(renamingWorkspaceId), newName]
+    renameProcess.running = true
+  }
 
-    closeRenamePopup()
-
-    if (wsId <= 0) return
-    if (newName === "" || newName.indexOf(" ") !== -1) return
-
-    root.bar.run("omarchy-workspace-rename " + wsId + " " + Util.shellQuote(newName))
+  Process {
+    id: renameProcess
+    property string errorOutput: ""
+    onStarted: errorOutput = ""
+    stderr: StdioCollector {
+      onStreamFinished: renameProcess.errorOutput = text.trim()
+    }
+    onExited: function(exitCode, exitStatus) {
+      if (exitCode === 0 && exitStatus === 0) {
+        stateFileView.reload()
+        root.closeRenamePopup()
+      } else {
+        root.renameError = errorOutput || "Rename failed (exit " + exitCode + ")."
+        console.warn("WorkspaceRename submit:", root.renameError)
+      }
+    }
   }
 
   readonly property real trailingGap: root.vertical ? 0 : Style.spaceReal(1.5)
@@ -107,9 +208,21 @@ BarWidget {
   }
 
   Connections {
+    target: root.monitor
+    function onActiveWorkspaceChanged() {
+      if (renamePopup.open && !renameProcess.running) root.closeRenamePopup()
+    }
+  }
+
+  Connections {
     target: Hyprland
-    function onFocusedWorkspaceChanged() {
-      if (renamePopup.open) closeRenamePopup()
+    function onRawEvent(event) {
+      var name = event ? String(event.name) : ""
+      var switched = name === "workspacev2" && root.monitor !== null && root.monitor.focused
+      if (switched || name === "moveworkspacev2" || name === "changeworkspaceid") {
+        Hyprland.refreshMonitors()
+        Hyprland.refreshWorkspaces()
+      }
     }
   }
 
@@ -129,7 +242,7 @@ BarWidget {
 
         readonly property var workspace: root.workspaceById(modelData)
         readonly property bool occupied: workspace !== null && workspace.toplevels.values.length > 0
-        readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
+        readonly property bool focused: root.activeWorkspaceId() === modelData
 
         bar: root.bar
         readonly property string customLabel: root.workspaceLabel(modelData)
@@ -176,42 +289,14 @@ BarWidget {
     contentHeight: renameContent.implicitHeight + 24
     triggerMode: "hover"
 
-    anchor {
-      adjustment: PopupAdjustment.Slide
-      edges: Edges.Top | Edges.Left
-      gravity: Edges.Bottom | Edges.Right
-      rect.width: 1
-      rect.height: 1
-
-      onAnchoring: {
-        if (!root.bar) return
-        var popupWidth = renamePopup.contentWidth
-        var popupHeight = renamePopup.contentHeight
-        var cx = 0
-        var cy = 0
-
-        if (root.bar.position === "top" || root.bar.position === "bottom") {
-          cx = root.width / 2 - popupWidth / 2
-          cy = root.bar.position === "top" ? root.height + 6 : -popupHeight - 6
-          cx = Math.max(6, Math.min(cx, root.width - popupWidth - 6))
-        } else {
-          cx = root.bar.position === "left" ? root.width + 6 : -popupWidth - 6
-          cy = root.height / 2 - popupHeight / 2
-          cy = Math.max(6, Math.min(cy, root.height - popupHeight - 6))
-        }
-
-        popupAnchor.rect.x = Math.round(cx)
-        popupAnchor.rect.y = Math.round(cy)
-      }
-    }
-
     Column {
       id: renameContent
       anchors.centerIn: parent
       spacing: 6
 
       Text {
-        text: "Rename Workspace " + root.renamingWorkspaceId
+        textFormat: Text.PlainText
+        text: "Rename Workspace " + root.slotOf(root.renamingWorkspaceId)
         color: Color.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.body
@@ -223,10 +308,21 @@ BarWidget {
         id: renameInput
         width: Style.space(160)
         focus: true
+        enabled: !renameProcess.running
         placeholderText: "Enter name\u2026"
         Keys.onReturnPressed: root.saveWorkspaceName()
         Keys.onEnterPressed: root.saveWorkspaceName()
         Keys.onEscapePressed: root.closeRenamePopup()
+      }
+
+      Text {
+        visible: root.renameError !== ""
+        textFormat: Text.PlainText
+        text: root.renameError
+        color: Color.foreground
+        width: renameInput.width
+        wrapMode: Text.Wrap
+        font.pixelSize: Style.font.body
       }
     }
   }
